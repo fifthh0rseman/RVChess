@@ -1,2 +1,6 @@
-for i in range(4, 2, -1):
-    print(i)
+import NotationTranslator
+
+translator = NotationTranslator.NotationTranslator()
+move = "слон а один"
+res = translator.reformatSpeech(move)
+print(res)

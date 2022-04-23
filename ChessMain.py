@@ -1,14 +1,21 @@
 """
 This file is responsible for displaying current GameState information
 """
-
+import pyaudio
 import pygame as p
-import ChessEngine
+from vosk import KaldiRecognizer
 
-WIDTH = HEIGHT = 512
+import ChessEngine
+import NotationTranslator
+import VoskAssistant
+
+BOARD_WIDTH = BOARD_HEIGHT = 512
+MOVELOG_PANEL_WIDTH = 400
+MOVELOG_PANEL_HEIGHT = BOARD_HEIGHT
 DIMENSION = 8  # dimension of the board
-SQUARE_SIZE = HEIGHT / DIMENSION
+SQUARE_SIZE = BOARD_HEIGHT / DIMENSION
 MAX_FPS = 15
+MOVELOG_FONT_SIZE = 20
 
 IMAGES = {}
 
@@ -26,12 +33,14 @@ The Main Driver which will handle user input and graphics update
 
 
 def main():
+    model = VoskAssistant.loadModel('ru-small')
     p.init()
-    screen = p.display.set_mode((WIDTH, HEIGHT))
+    screen = p.display.set_mode((BOARD_WIDTH + MOVELOG_PANEL_WIDTH, BOARD_HEIGHT))
     clock = p.time.Clock()
     screen.fill(p.Color("white"))
     gs = ChessEngine.GameState()
     validMoves = gs.getValidMoves()
+    moveLogFont = p.font.SysFont("Helvitca", MOVELOG_FONT_SIZE, False, False)
     moveMade = False  # A flag responsible for if a move is made
     animate = False  # Flag responsible for animation
     loadImages()  # Do this only once
@@ -39,17 +48,18 @@ def main():
     squareSelected = ()
     playerClicks = []
     gameOver = False
+    voicing = False
     while running:
         for e in p.event.get():
             if e.type == p.QUIT:
                 running = False
             # mouse handler
-            elif e.type == p.MOUSEBUTTONDOWN:
+            elif e.type == p.MOUSEBUTTONDOWN and not voicing:
                 if not gameOver:
                     location = p.mouse.get_pos()
                     col = int(location[0] // SQUARE_SIZE)
                     row = int(location[1] // SQUARE_SIZE)
-                    if squareSelected == (row, col):
+                    if squareSelected == (row, col) or col >= 8:  # user clicks on the square twice or on the move log
                         squareSelected = ()  # unselect
                         playerClicks = []  # clear player clicks
                     else:
@@ -84,7 +94,7 @@ def main():
                                 playerClicks = []
                         if not moveMade:
                             print(move.getChessNotation() + " not valid!")
-                            playerClicks = [squareSelected]
+                            playerClicks = []
             # button handler
             elif e.type == p.KEYDOWN:
                 if e.key == p.K_z:  # undo move if Z is pressed
@@ -104,6 +114,37 @@ def main():
                     moveMade = False
                     animate = False
 
+                if e.key == p.K_g:
+                    if not voicing:
+                        print("Voice play mode is chosen.")
+                        voicing = True
+                    else:
+                        print("Voice play mode disabled.")
+                        voicing = False
+
+        if voicing:
+            rec = KaldiRecognizer(model, 16000)
+            stream = pyaudio.PyAudio().open(format=pyaudio.paInt16, channels=1, rate=16000, input=True,
+                                            frames_per_buffer=8000)
+            stream.start_stream()
+            for text in VoskAssistant.listen(stream, rec):
+                translator = NotationTranslator.NotationTranslator()
+                res = translator.reformatSpeech(str(text))
+                if (len(res) < 4 and res != "O-O" and res != "O-O-O") or res == "" or "(-)" in res \
+                        or "[-]" in res or "Unknown" in res:
+                    print("Sorry, didn't recognize the move. Please repeat again:" + res)
+                    break
+                move = gs.proposeMoveFromNotation(res)
+                print("Reformatted: " + res)
+                for i in range(len(validMoves)):
+                    if move == validMoves[i]:
+                        if move.isPawnPromotion:
+                            gs.makeMove(validMoves[i], piecePromoting="Q")
+                        else:
+                            gs.makeMove(validMoves[i])
+                        moveMade = True
+                        animate = True
+            stream.close()
         if moveMade:
             if animate:
                 animateMove(gs.moveLog[-1], screen, gs.board, clock)
@@ -111,7 +152,7 @@ def main():
             moveMade = False
             animate = False
 
-        drawGameState(screen, gs, validMoves, squareSelected)
+        drawGameState(screen, gs, validMoves, squareSelected, moveLogFont)
 
         if gs.checkmate or gs.stalemate:
             gameOver = True
@@ -142,10 +183,11 @@ def highlightSquares(screen, gs, validMoves, sqSelected):
                     screen.blit(s, (SQUARE_SIZE * m.endCol, SQUARE_SIZE * m.endRow))
 
 
-def drawGameState(screen, gs, validMoves, sqSelected):
+def drawGameState(screen, gs, validMoves, sqSelected, moveLogFont):
     drawBoard(screen)
     highlightSquares(screen, gs, validMoves, sqSelected)
     drawPieces(screen, gs.board)
+    drawMoveLog(screen, gs, moveLogFont)
 
 
 def drawBoard(screen):
@@ -165,6 +207,32 @@ def drawPieces(screen, board):
                 screen.blit(IMAGES[piece], p.Rect(c * SQUARE_SIZE, r * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
 
 
+def drawMoveLog(screen, gs, moveLogFont):
+    moveLogRect = p.Rect(BOARD_WIDTH, 0, MOVELOG_PANEL_WIDTH, MOVELOG_PANEL_HEIGHT)
+    p.draw.rect(screen, p.Color("black"), moveLogRect)
+    moveLog = gs.moveLog
+    moveTexts = []
+    for i in range(0, len(moveLog), 2):
+        moveString = str(i // 2 + 1) + ". " + moveLog[i].getChessNotation()
+        if i + 1 < len(moveLog):  # make sure black made a move
+            moveString += " " + moveLog[i + 1].getChessNotation()
+        moveTexts.append(moveString)
+
+    padding = 5
+    paddingY = padding
+    lineSpacing = 2
+    movesPerRow = 3
+    for i in range(0, len(moveTexts), movesPerRow):
+        text = ""
+        for j in range(movesPerRow):
+            if i + j < len(moveTexts):
+                text += moveTexts[i + j]
+        textObject = moveLogFont.render(text, 1, p.Color("White"))
+        textLocation = moveLogRect.move(padding, paddingY)
+        screen.blit(textObject, textLocation)
+        paddingY += textObject.get_height() + lineSpacing
+
+
 """
 Animating the move
 """
@@ -174,7 +242,7 @@ def animateMove(move, screen, board, clock):
     global colors
     dR = move.endRow - move.startRow
     dC = move.endCol - move.startCol
-    framesPerSquare = 10  # frames to move one square
+    framesPerSquare = 4  # frames to move one square
     frameCount = (abs(dR) + abs(dC)) * framesPerSquare
     for frame in range(frameCount + 1):
         r, c = (move.startRow + dR * frame / frameCount, move.startCol + dC * frame / frameCount)
@@ -199,8 +267,8 @@ def animateMove(move, screen, board, clock):
 def drawEndGameText(screen, text):
     font = p.font.SysFont("Helvitca", 32, True, False)
     textObject = font.render(text, False, p.Color("Black"), p.Color("White"))
-    textLocation = p.Rect(0, 0, WIDTH, HEIGHT).move(WIDTH / 2 - textObject.get_width() / 2,
-                                                    HEIGHT / 2 - textObject.get_height() / 2)
+    textLocation = p.Rect(0, 0, BOARD_WIDTH, BOARD_HEIGHT).move(BOARD_WIDTH / 2 - textObject.get_width() / 2,
+                                                                BOARD_HEIGHT / 2 - textObject.get_height() / 2)
     screen.blit(textObject, textLocation)
 
 
