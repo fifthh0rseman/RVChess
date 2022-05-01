@@ -35,6 +35,7 @@ class GameState:
             ["wR", "wN", "wB", "wQ", "wK", "wB", "wN", "wR"]
         ]
 
+
         self.moveFunctions = {
             "p": self.getPawnMoves, "R": self.getRookMoves, "B": self.getBishopMoves,
             "N": self.getNightMoves, "Q": self.getQueenMoves, "K": self.getKingMoves
@@ -316,10 +317,9 @@ class GameState:
                     elif (r - 1, c - 1) == self.enPassantPossible:
                         gsCopy = copy.deepcopy(self)
                         gsCopy.makeMove(Move((r, c), (r - 1, c - 1), self.board, isEnPassantMove=True))
-                        kingRow, kingCol = gsCopy.whiteKingLocation if not gsCopy.whiteToMove else \
+                        kingRow, kingCol = gsCopy.whiteKingLocation if gsCopy.whiteToMove else \
                             gsCopy.blackKingLocation
-                        print(kingCol, kingRow)
-                        if not gsCopy.squareUnderAttack(kingRow, kingCol):
+                        if not gsCopy.squareUnderAttack(not gsCopy.whiteToMove, kingRow, kingCol):
                             moves.append(Move((r, c), (r - 1, c - 1), self.board, isEnPassantMove=True))
             if c + 1 <= 7:  # captures to the right
                 if not piecePinned or pinDirection == (-1, 1):
@@ -329,7 +329,7 @@ class GameState:
                         gsCopy = copy.deepcopy(self)
                         gsCopy.makeMove(Move((r, c), (r - 1, c - 1), self.board, isEnPassantMove=True))
                         kingRow, kingCol = gsCopy.whiteKingLocation if gsCopy.whiteToMove else gsCopy.blackKingLocation
-                        if not gsCopy.squareUnderAttack(kingRow, kingCol):
+                        if not gsCopy.squareUnderAttack(not gsCopy.whiteToMove, kingRow, kingCol):
                             moves.append(Move((r, c), (r - 1, c + 1), self.board, isEnPassantMove=True))
         else:
             if self.board[r + 1][c] == "--":
@@ -345,7 +345,7 @@ class GameState:
                         gsCopy = copy.deepcopy(self)
                         gsCopy.makeMove(Move((r, c), (r - 1, c - 1), self.board, isEnPassantMove=True))
                         kingRow, kingCol = gsCopy.whiteKingLocation if gsCopy.whiteToMove else gsCopy.blackKingLocation
-                        if not gsCopy.squareUnderAttack(kingRow, kingCol):
+                        if not gsCopy.squareUnderAttack(not gsCopy.whiteToMove, kingRow, kingCol):
                             moves.append(Move((r, c), (r + 1, c - 1), self.board, isEnPassantMove=True))
             if c + 1 <= 7:  # captures to the right
                 if not piecePinned or pinDirection == (1, 1):
@@ -355,7 +355,7 @@ class GameState:
                         gsCopy = copy.deepcopy(self)
                         gsCopy.makeMove(Move((r, c), (r - 1, c - 1), self.board, isEnPassantMove=True))
                         kingRow, kingCol = gsCopy.whiteKingLocation if gsCopy.whiteToMove else gsCopy.blackKingLocation
-                        if not gsCopy.squareUnderAttack(kingRow, kingCol):
+                        if not gsCopy.squareUnderAttack(not gsCopy.whiteToMove, kingRow, kingCol):
                             moves.append(Move((r, c), (r + 1, c + 1), self.board, isEnPassantMove=True))
 
     def getRookMoves(self, r, c, moves):
@@ -471,35 +471,44 @@ class GameState:
                     else:
                         self.blackKingLocation = (r, c)
 
-    def squareUnderAttack(self, r, c):
-        res = True
-        piece = self.board[r][c]
-        turn = self.whiteToMove
-        if turn:
-            self.whiteToMove = False
-            self.board[r][c] = "wN"
-            moves = self.getAllPossibleMoves()
-
-            for move in moves:
-                # print("generated: " + str(move.getChessNotation()) + ", endRow:" + str(move.endRow) + ", endCol:" +
-                #      str(move.endCol) + ", r:" + str(r) + ", c:" + str(c))
-                if move.endRow == r and move.endCol == c:
-                    res = True
-                    break
-                else:
-                    res = False
+    def squareUnderAttack(self, side, r, c):
+        if side:
+            return self.squareUnderWhiteAttack(r, c)
         else:
-            self.whiteToMove = True
-            self.board[r][c] = "bp"
-            moves = self.getAllPossibleMoves()
-            for move in moves:
-                if move.endRow == r and move.endCol == c:
-                    res = True
-                    break
-                else:
-                    res = False
-        self.whiteToMove = turn
-        self.board[r][c] = piece
+            return self.squareUnderBlackAttack(r, c)
+
+    def squareUnderBlackAttack(self, r, c):
+        gs = copy.deepcopy(self)
+        res = False
+        gs.whiteToMove = False
+        gs.board[r][c] = "wQ"
+        moves = gs.getAllPossibleMoves()
+
+        for move in moves:
+            # print("generated: " + str(move.getChessNotation()) + ", endRow:" + str(move.endRow) + ", endCol:" +
+            #      str(move.endCol) + ", r:" + str(r) + ", c:" + str(c))
+            if move.endRow == r and move.endCol == c:
+                res = True
+                break
+            else:
+                res = False
+        return res
+
+    def squareUnderWhiteAttack(self, r, c):
+        gs = copy.deepcopy(self)
+        res = False
+        gs.whiteToMove = True
+        gs.board[r][c] = "bQ"
+        moves = gs.getAllPossibleMoves()
+
+        for move in moves:
+            # print("generated: " + str(move.getChessNotation()) + ", endRow:" + str(move.endRow) + ", endCol:" +
+            #      str(move.endCol) + ", r:" + str(r) + ", c:" + str(c))
+            if move.endRow == r and move.endCol == c:
+                res = True
+                break
+            else:
+                res = False
         return res
 
     def getCastleMoves(self, r, c, moves):

@@ -73,6 +73,14 @@ def main():
                                     gs.makeMove(validMoves[i], piecePromoting="Q")
                                 else:
                                     gs.makeMove(validMoves[i])
+                                # print(ChessEngine.Move.rowsToRanks[gs.whiteKingLocation[0]],
+                                #      ChessEngine.Move.colsToFiles[gs.whiteKingLocation[1]])
+
+                                # for r in range(0, 8):
+                                #    for c in range(0, 8):
+                                #        print(str(ChessEngine.Move.colsToFiles[c]) +
+                                #              str(ChessEngine.Move.rowsToRanks[r]) + ": " + str(c) + str(r))
+
                                 moveMade = True
                                 animate = True
                                 # get valid chess notation
@@ -80,6 +88,7 @@ def main():
                                 gs.inCheck, gs.checks, gs.pins, gs.inDoubleCheck = gs.checkForPinsAndChecks()
                                 number = gs.moveLog.index(move)
                                 moveNotation = str(number + 1) + ". " + moveNotation
+
                                 if gs.inCheck and not gs.inDoubleCheck:
                                     moveNotation += "+"
                                 elif gs.inDoubleCheck:
@@ -89,6 +98,15 @@ def main():
                                 elif gs.stalemate:
                                     moveNotation += "$"
                                 print(moveNotation)
+                                print("turn: " + str(gs.whiteToMove))
+                                if gs.enPassantPossible != ():
+                                    print("enPassantPossible: (" + str(gs.enPassantPossible[0]) + ", " + str(gs.enPassantPossible[1]) + ")")
+                                else: print("no enPassant possible")
+                                color = "black" if gs.whiteToMove else "white"
+                                print("squareWhiteKing under attack from " + color + "side: " +
+                                      str(ChessEngine.GameState.squareUnderAttack(gs, (not gs.whiteToMove),
+                                                                                  gs.whiteKingLocation[0],
+                                                                                  gs.whiteKingLocation[1])))
                                 # undo selecting
                                 squareSelected = ()
                                 playerClicks = []
@@ -99,6 +117,8 @@ def main():
             elif e.type == p.KEYDOWN:
                 if e.key == p.K_z:  # undo move if Z is pressed
                     gs.undoMove()
+                    squareSelected = ()
+                    playerClicks = []
                     moveMade = True
                     animate = False
                     if gameOver:
