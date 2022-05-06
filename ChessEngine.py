@@ -4,7 +4,7 @@ It will also keep a MOVE LOG.
 """
 import copy
 
-
+# todo: guarding condition on methods
 class GameState:
     def __init__(self):
         """
@@ -34,7 +34,6 @@ class GameState:
             ["wp", "wp", "wp", "wp", "wp", "wp", "wp", "wp"],
             ["wR", "wN", "wB", "wQ", "wK", "wB", "wN", "wR"]
         ]
-
 
         self.moveFunctions = {
             "p": self.getPawnMoves, "R": self.getRookMoves, "B": self.getBishopMoves,
@@ -250,9 +249,9 @@ class GameState:
                         """
                         if (0 <= j <= 3 and type == "R") or \
                                 (4 <= j <= 7 and type == "B") or \
-                                (i == 1 and type == "p" and (
-                                        (enemyColor == "w" and 6 <= j <= 7) or (enemyColor == "b" and 4 <= j <= 5))) or \
-                                (type == "Q") or (i == 1 and type == "K"):
+                                (i == 1 and type == "p" and ((enemyColor == "w" and 6 <= j <= 7)
+                                                             or (enemyColor == "b" and 4 <= j <= 5))) \
+                                or (type == "Q") or (i == 1 and type == "K"):
                             if possiblePin == ():  # no piece blocking, so it's a check
                                 inCheck = True
                                 checks.append((endRow, endCol, d[0], d[1]))
@@ -295,8 +294,6 @@ class GameState:
     def getPawnMoves(self, r, c, moves):
         piecePinned = False
         pinDirection = ()
-
-        enemyColor = "b" if self.whiteToMove else "w"
         for i in range(len(self.pins) - 1, -1, -1):
             if self.pins[i][0] == r and self.pins[i][1] == c:
                 piecePinned = True
@@ -523,13 +520,15 @@ class GameState:
 
     def getKingSideCastleMoves(self, r, c, moves):
         if self.board[r][c + 1] == "--" and self.board[r][c + 2] == "--" and self.board[r][c + 3][1] == "R":
-            if not self.squareUnderAttack(r, c + 1) and not self.squareUnderAttack(r, c + 2):
+            if not self.squareUnderAttack(not self.whiteToMove, r, c + 1) and \
+                    not self.squareUnderAttack(not self.whiteToMove, r, c + 2):
                 moves.append(Move((r, c), (r, c + 2), self.board, castle=True))
 
     def getQueenSideCastleMoves(self, r, c, moves):
         if self.board[r][c - 1] == "--" and self.board[r][c - 2] == "--" and self.board[r][c - 3] == "--" \
                 and self.board[r][c - 4][1] == "R":
-            if not self.squareUnderAttack(r, c - 1) and not self.squareUnderAttack(r, c - 2):
+            if not self.squareUnderAttack(not self.whiteToMove, r, c - 1) and \
+                    not self.squareUnderAttack(not self.whiteToMove, r, c - 2):
                 moves.append(Move((r, c), (r, c - 2), self.board, castle=True))
 
     def proposeMoveFromNotation(self, moveString):
@@ -549,8 +548,6 @@ class GameState:
             else:
                 return Move((startRow, startCol),
                             (endRow, endCol), self.board)
-
-
 
 
 class CastleRights:

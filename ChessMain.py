@@ -73,14 +73,6 @@ def main():
                                     gs.makeMove(validMoves[i], piecePromoting="Q")
                                 else:
                                     gs.makeMove(validMoves[i])
-                                # print(ChessEngine.Move.rowsToRanks[gs.whiteKingLocation[0]],
-                                #      ChessEngine.Move.colsToFiles[gs.whiteKingLocation[1]])
-
-                                # for r in range(0, 8):
-                                #    for c in range(0, 8):
-                                #        print(str(ChessEngine.Move.colsToFiles[c]) +
-                                #              str(ChessEngine.Move.rowsToRanks[r]) + ": " + str(c) + str(r))
-
                                 moveMade = True
                                 animate = True
                                 # get valid chess notation
@@ -98,15 +90,8 @@ def main():
                                 elif gs.stalemate:
                                     moveNotation += "$"
                                 print(moveNotation)
-                                print("turn: " + str(gs.whiteToMove))
-                                if gs.enPassantPossible != ():
-                                    print("enPassantPossible: (" + str(gs.enPassantPossible[0]) + ", " + str(gs.enPassantPossible[1]) + ")")
-                                else: print("no enPassant possible")
-                                color = "black" if gs.whiteToMove else "white"
-                                print("squareWhiteKing under attack from " + color + "side: " +
-                                      str(ChessEngine.GameState.squareUnderAttack(gs, (not gs.whiteToMove),
-                                                                                  gs.whiteKingLocation[0],
-                                                                                  gs.whiteKingLocation[1])))
+                                print("turn: " + ("white" if gs.whiteToMove else "black"))
+                                print("castleRights: wks: " + str(gs.currentCastlingRights.wks))
                                 # undo selecting
                                 squareSelected = ()
                                 playerClicks = []
@@ -150,6 +135,9 @@ def main():
             for text in VoskAssistant.listen(stream, rec):
                 translator = NotationTranslator.NotationTranslator()
                 res = translator.reformatSpeech(str(text))
+                if "стоп" in res:
+                    voicing = False
+                    break
                 if (len(res) < 4 and res != "O-O" and res != "O-O-O") or res == "" or "(-)" in res \
                         or "[-]" in res or "Unknown" in res:
                     print("Sorry, didn't recognize the move. Please repeat again:" + res)
@@ -186,7 +174,7 @@ def main():
 Highlight the squares where pieces can move to
 """
 
-
+# todo: highlight and select only whiteToMove pieces
 def highlightSquares(screen, gs, validMoves, sqSelected):
     if sqSelected != ():
         r, c = sqSelected
@@ -208,7 +196,7 @@ def drawGameState(screen, gs, validMoves, sqSelected, moveLogFont):
     highlightSquares(screen, gs, validMoves, sqSelected)
     drawPieces(screen, gs.board)
     drawMoveLog(screen, gs, moveLogFont)
-
+# todo: add whiteToMove sign
 
 def drawBoard(screen):
     global colors
@@ -227,7 +215,7 @@ def drawPieces(screen, board):
                 screen.blit(IMAGES[piece], p.Rect(c * SQUARE_SIZE, r * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
 
 
-def drawMoveLog(screen, gs, moveLogFont):
+def drawMoveLog(screen, gs, moveLogFont):  # todo: print checks, doublechecks, checkmates, stalemates
     moveLogRect = p.Rect(BOARD_WIDTH, 0, MOVELOG_PANEL_WIDTH, MOVELOG_PANEL_HEIGHT)
     p.draw.rect(screen, p.Color("black"), moveLogRect)
     moveLog = gs.moveLog
