@@ -4,6 +4,16 @@ It will also keep a MOVE LOG.
 """
 import copy
 
+
+class GameStateConstants:
+    def __init__(self):
+        self.inCheck = "+"
+        self.inDoubleCheck = "++"
+        self.checkmate = "#"
+        self.stalemate = "~"
+        self.none = ""
+
+
 # todo: guarding condition on methods
 class GameState:
     def __init__(self):
@@ -55,6 +65,8 @@ class GameState:
         self.currentCastlingRights = CastleRights(True, True, True, True)
         self.CastleRightsLog = [CastleRights(self.currentCastlingRights.wks, self.currentCastlingRights.bks,
                                              self.currentCastlingRights.wqs, self.currentCastlingRights.bqs)]
+        self.moveLogChecks = []
+        self.gameStateConstants = GameStateConstants()
 
     def makeMove(self, move, piecePromoting=""):
         self.board[move.startRow][move.startCol] = "--"
@@ -100,9 +112,25 @@ class GameState:
         self.CastleRightsLog.append(CastleRights(self.currentCastlingRights.wks, self.currentCastlingRights.bks,
                                                  self.currentCastlingRights.wqs, self.currentCastlingRights.bqs))
 
+        # store the state (check, double check, checkmate, stalemate)
+        inCheck, _, _, inDoubleCheck = self.checkForPinsAndChecks()
+        _ = self.getValidMoves()
+
+        if self.checkmate:
+            self.moveLogChecks.append(self.gameStateConstants.checkmate)
+        elif self.stalemate:
+            self.moveLogChecks.append(self.gameStateConstants.stalemate)
+        elif inCheck and not inDoubleCheck:
+            self.moveLogChecks.append(self.gameStateConstants.inCheck)
+        elif inDoubleCheck:
+            self.moveLogChecks.append(self.gameStateConstants.inDoubleCheck)
+        else:
+            self.moveLogChecks.append(self.gameStateConstants.none)
+
     def undoMove(self):
         if len(self.moveLog) != 0:
             move = self.moveLog.pop()
+            _ = self.moveLogChecks.pop()
             self.board[move.startRow][move.startCol] = move.pieceMoved
             self.board[move.endRow][move.endCol] = move.pieceCaptured
             self.whiteToMove = not self.whiteToMove

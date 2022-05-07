@@ -20,11 +20,15 @@ MOVELOG_FONT_SIZE = 20
 IMAGES = {}
 
 
+
+
 # Download the images
 def loadImages():
     pieces = ["wp", "wR", "wN", "wB", "wQ", "wK", "bp", "bR", "bN", "bB", "bQ", "bK"]
     for piece in pieces:
         IMAGES[piece] = p.transform.scale(p.image.load("./images/" + piece + ".png"), (SQUARE_SIZE, SQUARE_SIZE))
+
+
 
 
 """
@@ -49,6 +53,7 @@ def main():
     playerClicks = []
     gameOver = False
     voicing = False
+    moveLogString = ""
     while running:
         for e in p.event.get():
             if e.type == p.QUIT:
@@ -79,7 +84,7 @@ def main():
                                 moveNotation = move.getChessNotation()
                                 gs.inCheck, gs.checks, gs.pins, gs.inDoubleCheck = gs.checkForPinsAndChecks()
                                 number = gs.moveLog.index(move)
-                                moveNotation = str(number + 1) + ". " + moveNotation
+                                moveNotation = (str(number + 1) + ". " if (number+1) % 2 == 1 else "") + moveNotation
 
                                 if gs.inCheck and not gs.inDoubleCheck:
                                     moveNotation += "+"
@@ -89,6 +94,7 @@ def main():
                                     moveNotation += "#"
                                 elif gs.stalemate:
                                     moveNotation += "$"
+                                moveLogString += moveNotation
                                 print(moveNotation)
                                 print("turn: " + ("white" if gs.whiteToMove else "black"))
                                 print("castleRights: wks: " + str(gs.currentCastlingRights.wks))
@@ -219,11 +225,12 @@ def drawMoveLog(screen, gs, moveLogFont):  # todo: print checks, doublechecks, c
     moveLogRect = p.Rect(BOARD_WIDTH, 0, MOVELOG_PANEL_WIDTH, MOVELOG_PANEL_HEIGHT)
     p.draw.rect(screen, p.Color("black"), moveLogRect)
     moveLog = gs.moveLog
+    checksLog = gs.moveLogChecks
     moveTexts = []
     for i in range(0, len(moveLog), 2):
-        moveString = str(i // 2 + 1) + ". " + moveLog[i].getChessNotation()
+        moveString = str(i // 2 + 1) + ". " + moveLog[i].getChessNotation() + str(checksLog[i])
         if i + 1 < len(moveLog):  # make sure black made a move
-            moveString += " " + moveLog[i + 1].getChessNotation()
+            moveString += " " + moveLog[i + 1].getChessNotation() + str(checksLog[i+1]) + " "
         moveTexts.append(moveString)
 
     padding = 5
