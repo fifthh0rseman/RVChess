@@ -68,7 +68,7 @@ class GameState:
         self.moveLogChecks = []
         self.gameStateConstants = GameStateConstants()
 
-    def makeMove(self, move, piecePromoting=""):
+    def makeMove(self, move):
         self.board[move.startRow][move.startCol] = "--"
         self.board[move.endRow][move.endCol] = move.pieceMoved
         self.moveLog.append(move)  # store the move in move log
@@ -79,7 +79,7 @@ class GameState:
             self.blackKingLocation = (move.endRow, move.endCol)
 
         if move.isPawnPromotion:
-            self.board[move.endRow][move.endCol] = move.pieceMoved[0] + piecePromoting
+            self.board[move.endRow][move.endCol] = move.pieceMoved[0] + move.piecePromoting
 
         if move.isEnPassantMove:
             if move.pieceMoved == "wp":
@@ -158,7 +158,7 @@ class GameState:
                 else:  # queenside castle
                     self.board[move.endRow][move.endCol - 2] = self.board[move.endRow][move.endCol + 1]
                     self.board[move.endRow][move.endCol + 1] = "--"
-            print("undone: " + move.getChessNotation())
+            print("undone: " + move.getFullChessNotation())
 
     def updateCastleRights(self, move):
         if move.pieceMoved == "wK":
@@ -570,9 +570,15 @@ class GameState:
             startRow = Move.ranksToRows[moveString[2]]
             endCol = Move.filesToCols[moveString[4]]
             endRow = Move.ranksToRows[moveString[5]]
+            piecePromoting = ""
+            if len(moveString) == 7:
+                piecePromoting = moveString[6]
             if self.enPassantPossible == (endRow, endCol):
                 return Move((startRow, startCol),
                             (endRow, endCol), self.board, isEnPassantMove=True)
+            elif piecePromoting != "":
+                return Move((startRow, startCol),
+                            (endRow, endCol), self.board, piecePromoting=piecePromoting)
             else:
                 return Move((startRow, startCol),
                             (endRow, endCol), self.board)
@@ -592,7 +598,7 @@ class Move:
     filesToCols = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5, "g": 6, "h": 7}  # dictionary file-col
     colsToFiles = {v: k for k, v in filesToCols.items()}
 
-    def __init__(self, startSq, endSq, board, isEnPassantMove=False, castle=False):
+    def __init__(self, startSq, endSq, board, isEnPassantMove=False, castle=False, piecePromoting="Q"):
         self.startRow = startSq[0]
         self.startCol = startSq[1]
         self.endRow = endSq[0]
@@ -602,7 +608,7 @@ class Move:
         self.moveID = self.startRow * 1000 + self.startCol * 100 + self.endRow * 10 + self.endCol
         # unique identifier of the move from 0 to 7777
         # For example: 0002 = move from row 0, col 0 to row 0, col 2
-
+        self.piecePromoting = piecePromoting
         self.isPawnPromotion = False
         if (self.pieceMoved == "wp" and self.endRow == 0) or (self.pieceMoved == "bp" and self.endRow == 7):
             self.isPawnPromotion = True
@@ -616,8 +622,7 @@ class Move:
     def getRankFile(self, r, c):
         return self.colsToFiles[c] + self.rowsToRanks[r]
 
-    def getChessNotation(self):
-        # TODO: make this real chess notation
+    def getFullChessNotation(self):
         if self.isCastleMove:
             if self.endCol - self.startCol == 2:
                 return "O-O"
@@ -625,8 +630,32 @@ class Move:
                 return "O-O-O"
         else:
             res = self.pieceMoved[1] if self.pieceMoved[1] != "p" else ""
-            return res + self.getRankFile(self.startRow, self.startCol) + "-" + \
-                   self.getRankFile(self.endRow, self.endCol)
+            return res + self.getRankFile(self.startRow, self.startCol) + ("-" if self.pieceCaptured == "--" else "x") + \
+                   self.getRankFile(self.endRow, self.endCol) + (self.piecePromoting if self.isPawnPromotion else "")
+
+    def getShortChessNotation(self, gs):
+        res = self.pieceMoved[1] if self.pieceMoved[1] != "p" else ""
+        res += ("x" if self.pieceCaptured != "--" else "")
+        gs.board[self.endRow][self.endCol] = "--"
+        moves = gs.getAllPossibleMoves()
+        sameEndSquareMoves = []
+        for move in moves:
+            print("generated: " + move.getFullChessNotation())
+            if move.pieceMoved == self.pieceMoved and move.endRow == self.endRow and move.endCol == self.endCol:
+                sameEndSquareMoves.append(move)
+        for move in sameEndSquareMoves:
+            if len(sameEndSquareMoves) == 1:
+                if move.startRow == self.startRow:
+                    res += str(self.colsToFiles[self.startCol])
+                elif move.startCol == self.startCol:
+                    res += str(self.rowsToRanks[self.startRow])
+            elif len(sameEndSquareMoves) > 1:
+                return self.getFullChessNotation()
+
+        res += self.getRankFile(self.endRow, self.endCol)
+        if self.isPawnPromotion:
+            res += self.piecePromoting
+        return res
 
     def __eq__(self, other):
         if isinstance(other, Move):

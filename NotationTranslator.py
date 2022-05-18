@@ -8,6 +8,68 @@ class NotationTranslator:
         self.ruExceptionsList = {"едва": "e2"}
 
     def reformatSpeech(self, speechString):
+        objectsList = []
+        if not isinstance(speechString, str):
+            raise TypeError("Argument is not str.")
+        if "длин" in speechString and "рок" in speechString:
+            return "O-O-O"
+        if "рок" in speechString:
+            return "O-O"
+        inputString = speechString
+        if " " not in inputString:
+            print("Incorrect move.")
+            return "Unknown (-)[-]-(-)[-]"
+        while " " in inputString:
+            obj, inputString = inputString.split(" ", 1)
+            objectsList.append(obj)
+        objectsList.append(inputString)
+        print(len(objectsList))
+        for o in objectsList:
+            print(o)
+        res = ""
+        collidedValuesFirst = False
+        collidedValuesSecond = False
+        if len(objectsList) > 0:
+            res = self.recognizeFigure(objectsList[0], res)
+        if len(objectsList) > 1:
+            if objectsList[1] in self.ruExceptionsList:
+                res += self.ruExceptionsList[objectsList[1]]
+                collidedValuesFirst = True
+                res += "-"
+            else:
+                res = self.recognizeCol(objectsList[1], res)
+        if len(objectsList) > 2:
+            if not collidedValuesFirst:
+                res = self.recognizeRow(objectsList[2], res)
+                res += "-"
+            else:
+                if objectsList[2] in self.ruExceptionsList:
+                    res += self.ruExceptionsList[objectsList[1]]
+                    collidedValuesSecond = True
+                else:
+                    res = self.recognizeCol(objectsList[2], res)
+        if len(objectsList) > 3:
+            if objectsList[3] in self.ruExceptionsList:
+                res += self.ruExceptionsList[objectsList[3]]
+            else:
+                if collidedValuesFirst:
+                    if "p" in res:
+                        res = self.recognizeFigure(objectsList[3], res)
+                    else:
+                        res = self.recognizeRow(objectsList[3], res)
+                else:
+                    res = self.recognizeCol(objectsList[3], res)
+        if len(objectsList) > 4:
+            if collidedValuesFirst or collidedValuesSecond and "p" in res:
+                res = self.recognizeFigure(objectsList[4], res)
+            else:
+                res = self.recognizeRow(objectsList[4], res)
+        if len(objectsList) > 5:
+            if "p" in res:
+                res = self.recognizeFigure(objectsList[5], res)
+        return res
+
+    def deprecatedReformatSpeech(self, speechString):
         if not isinstance(speechString, str):
             raise TypeError("Argument is not str.")
         if "длин" in speechString and "рок" in speechString:
@@ -31,33 +93,30 @@ class NotationTranslator:
             return result + "(-)[-]-(-)[-]"
         moveStartColContender = str(moveStartColContender)
         otherPartOfMove = str(otherPartOfMove)
-        parsingNumberIsNeeded = True
 
-        parsingNumberIsNeeded, result = self.recognizeCol(moveStartColContender, parsingNumberIsNeeded, result)
-        moveEnded = False
-        if parsingNumberIsNeeded:
-            if " " in otherPartOfMove:
-                moveStartNumberContender, otherPartOfMove = otherPartOfMove.split(" ", 1)
-            else:
-                moveStartNumberContender = otherPartOfMove
-                moveEnded = True
-            result = self.recognizeRow(moveStartNumberContender, result)
-        if moveEnded:
-            return result
+        result = self.recognizeCol(moveStartColContender, result)
+        if " " in otherPartOfMove:
+            moveStartNumberContender, otherPartOfMove = otherPartOfMove.split(" ", 1)
         else:
-            result += "-"
+            print("Incorrect move recognition.")
+            return result + "[-]-(-)[-]"
+        result = self.recognizeRow(moveStartNumberContender, result)
+        result += "-"
+        if " " in otherPartOfMove:
+            moveEndColContender, otherPartOfMove = otherPartOfMove.split(" ", 1)
+            result = self.recognizeCol(moveEndColContender, result)
             if " " in otherPartOfMove:
-                moveEndColContender, moveEndRowContender = otherPartOfMove.split(" ", 1)
-                parsingNumberIsNeeded, result = self.recognizeCol(moveEndColContender, parsingNumberIsNeeded, result)
+                moveEndRowContender, otherPartOfMove = otherPartOfMove.split(" ", 1)
                 result = self.recognizeRow(moveEndRowContender, result)
-                return result
-            elif otherPartOfMove in self.ruExceptionsList:
-                result += self.ruExceptionsList[otherPartOfMove]
-            else:
-                print("Neither endCol, nor endRow is not recognized")
-                result += "(-)[-]"
-                print("Returned:" + result)
+
             return result
+        elif otherPartOfMove in self.ruExceptionsList:
+            result += self.ruExceptionsList[otherPartOfMove]
+        else:
+            print("Neither endCol, nor endRow is not recognized")
+            result += "(-)[-]"
+            print("Returned:" + result)
+        return result
 
     def recognizeRow(self, moveStartNumberContender, result):
         if moveStartNumberContender in self.ruNumberDict:
@@ -68,10 +127,9 @@ class NotationTranslator:
             result += "[-]"
         return result
 
-    def recognizeCol(self, moveColContender, parsingNumberIsNeeded, result):
+    def recognizeCol(self, moveColContender, result):
         if moveColContender in self.ruExceptionsList:
             result += self.ruExceptionsList[moveColContender]
-            parsingNumberIsNeeded = False
         else:
             if moveColContender in self.ruColDict:
                 result += self.ruColDict[moveColContender]
@@ -96,7 +154,7 @@ class NotationTranslator:
             else:
                 print("Column is not recognized")
                 result += "(-)"
-        return parsingNumberIsNeeded, result
+        return result
 
     def recognizeFigure(self, figure, result):
         if figure in self.ruFigureDict:

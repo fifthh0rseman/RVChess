@@ -68,13 +68,14 @@ def startExperiment(mode, stream, rec):
             translator = NotationTranslator.NotationTranslator()
             res = translator.reformatSpeech(str(text))
             gs = ChessEngine.GameState()
-            res1 = gs.proposeMoveFromNotation(res).getChessNotation()
+            res1 = gs.proposeMoveFromNotation(res).getFullChessNotation()
             file.write("Переведеный ход: " + res + "\n")
             file.write("Предложенный ход: " + res1 + "\n")
         if "стоп" in str(text):
             file.write("Эксперимент завершен.\n\n")
             file.close()
             break
+
 
 
 #  loadModelAndStartExperiment()

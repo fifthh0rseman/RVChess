@@ -4,11 +4,14 @@ This file is responsible for displaying current GameState information
 import pyaudio
 import pygame as p
 from vosk import KaldiRecognizer
+import pyttsx3
 
 import ChessEngine
 import NotationTranslator
 import VoskAssistant
 
+CLOCK_PANEL_WIDTH = 150
+CLOCK_PANEL_HEIGHT = 512
 BOARD_WIDTH = BOARD_HEIGHT = 512
 MOVELOG_PANEL_WIDTH = 400
 MOVELOG_PANEL_HEIGHT = BOARD_HEIGHT
@@ -20,15 +23,11 @@ MOVELOG_FONT_SIZE = 20
 IMAGES = {}
 
 
-
-
 # Download the images
 def loadImages():
     pieces = ["wp", "wR", "wN", "wB", "wQ", "wK", "bp", "bR", "bN", "bB", "bQ", "bK"]
     for piece in pieces:
         IMAGES[piece] = p.transform.scale(p.image.load("./images/" + piece + ".png"), (SQUARE_SIZE, SQUARE_SIZE))
-
-
 
 
 """
@@ -39,7 +38,7 @@ The Main Driver which will handle user input and graphics update
 def main():
     model = VoskAssistant.loadModel('ru-small')
     p.init()
-    screen = p.display.set_mode((BOARD_WIDTH + MOVELOG_PANEL_WIDTH, BOARD_HEIGHT))
+    screen = p.display.set_mode((CLOCK_PANEL_WIDTH + BOARD_WIDTH + MOVELOG_PANEL_WIDTH, BOARD_HEIGHT))
     clock = p.time.Clock()
     screen.fill(p.Color("white"))
     gs = ChessEngine.GameState()
@@ -54,37 +53,38 @@ def main():
     gameOver = False
     voicing = False
     moveLogString = ""
+    engine = pyttsx3.init()
+    audioManager = pyaudio.PyAudio()
     while running:
         for e in p.event.get():
             if e.type == p.QUIT:
                 running = False
+                voicing = False
+                audioManager.terminate()
             # mouse handler
             elif e.type == p.MOUSEBUTTONDOWN and not voicing:
                 if not gameOver:
                     location = p.mouse.get_pos()
                     col = int(location[0] // SQUARE_SIZE)
                     row = int(location[1] // SQUARE_SIZE)
+                    color = "w" if gs.whiteToMove else "b"
                     if squareSelected == (row, col) or col >= 8:  # user clicks on the square twice or on the move log
                         squareSelected = ()  # unselect
                         playerClicks = []  # clear player clicks
                     else:
-                        squareSelected = (row, col)
-                        playerClicks.append(squareSelected)
+                        if (gs.board[row][col][0] == color and len(playerClicks) == 0) or len(playerClicks) == 1:
+                            squareSelected = (row, col)
+                            playerClicks.append(squareSelected)
                     if len(playerClicks) == 2:
                         move = ChessEngine.Move(playerClicks[0], playerClicks[1], gs.board)
                         for i in range(len(validMoves)):
                             if move == validMoves[i]:
-                                if move.isPawnPromotion:
-                                    gs.makeMove(validMoves[i], piecePromoting="Q")
-                                else:
-                                    gs.makeMove(validMoves[i])
-                                moveMade = True
-                                animate = True
+                                animate, moveMade = makeMoveAndAnimate(gs, move)
                                 # get valid chess notation
-                                moveNotation = move.getChessNotation()
+                                moveNotation = move.getFullChessNotation()
                                 gs.inCheck, gs.checks, gs.pins, gs.inDoubleCheck = gs.checkForPinsAndChecks()
                                 number = gs.moveLog.index(move)
-                                moveNotation = (str(number + 1) + ". " if (number+1) % 2 == 1 else "") + moveNotation
+                                moveNotation = (str(number + 1) + ". " if (number + 1) % 2 == 1 else "") + moveNotation
 
                                 if gs.inCheck and not gs.inDoubleCheck:
                                     moveNotation += "+"
@@ -97,12 +97,12 @@ def main():
                                 moveLogString += moveNotation
                                 print(moveNotation)
                                 print("turn: " + ("white" if gs.whiteToMove else "black"))
-                                print("castleRights: wks: " + str(gs.currentCastlingRights.wks))
                                 # undo selecting
                                 squareSelected = ()
                                 playerClicks = []
                         if not moveMade:
-                            print(move.getChessNotation() + " not valid!")
+                            print(move.getFullChessNotation() + " not valid!")
+                            squareSelected = ()
                             playerClicks = []
             # button handler
             elif e.type == p.KEYDOWN:
@@ -125,7 +125,7 @@ def main():
                     moveMade = False
                     animate = False
 
-                if e.key == p.K_g:
+                if e.key == p.K_g:  # enter the voice mode
                     if not voicing:
                         print("Voice play mode is chosen.")
                         voicing = True
@@ -135,29 +135,30 @@ def main():
 
         if voicing:
             rec = KaldiRecognizer(model, 16000)
-            stream = pyaudio.PyAudio().open(format=pyaudio.paInt16, channels=1, rate=16000, input=True,
-                                            frames_per_buffer=8000)
+            stream = audioManager.open(format=pyaudio.paInt16, channels=1, rate=16000, input=True,
+                                       frames_per_buffer=8000)
             stream.start_stream()
             for text in VoskAssistant.listen(stream, rec):
                 translator = NotationTranslator.NotationTranslator()
-                res = translator.reformatSpeech(str(text))
-                if "стоп" in res:
+                if "стоп" in text:
                     voicing = False
+                    print("voice play mode being disabled")
+                    stream.close()
                     break
-                if (len(res) < 4 and res != "O-O" and res != "O-O-O") or res == "" or "(-)" in res \
+                res = translator.reformatSpeech(str(text))
+                if (len(res) < 6 and res != "O-O" and res != "O-O-O") or res == "" or "(-)" in res \
                         or "[-]" in res or "Unknown" in res:
+                    engine.say("Ход не рас поз нан")
+                    engine.runAndWait()
                     print("Sorry, didn't recognize the move. Please repeat again:" + res)
                     break
                 move = gs.proposeMoveFromNotation(res)
                 print("Reformatted: " + res)
+                engine.say("Ход рас поз нан. Делаю ход")
+                engine.runAndWait()
                 for i in range(len(validMoves)):
                     if move == validMoves[i]:
-                        if move.isPawnPromotion:
-                            gs.makeMove(validMoves[i], piecePromoting="Q")
-                        else:
-                            gs.makeMove(validMoves[i])
-                        moveMade = True
-                        animate = True
+                        animate, moveMade = makeMoveAndAnimate(gs, move)
             stream.close()
         if moveMade:
             if animate:
@@ -170,15 +171,24 @@ def main():
 
         if gs.checkmate or gs.stalemate:
             gameOver = True
-            text = "Stalemate" if gs.stalemate else "Black wins by checkmate" if gs.whiteToMove else "White wins by checkmate"
+            text = "Stalemate" if gs.stalemate else "Black wins by checkmate" if gs.whiteToMove else "White wins by " \
+                                                                                                     "checkmate "
             drawEndGameText(screen, text)
         clock.tick(MAX_FPS)
         p.display.flip()
 
 
+def makeMoveAndAnimate(gs, move):
+    gs.makeMove(move)
+    moveMade = True
+    animate = True
+    return animate, moveMade
+
+
 """
 Highlight the squares where pieces can move to
 """
+
 
 # todo: highlight and select only whiteToMove pieces
 def highlightSquares(screen, gs, validMoves, sqSelected):
@@ -201,7 +211,10 @@ def drawGameState(screen, gs, validMoves, sqSelected, moveLogFont):
     drawBoard(screen)
     highlightSquares(screen, gs, validMoves, sqSelected)
     drawPieces(screen, gs.board)
-    drawMoveLog(screen, gs, moveLogFont)
+    drawMoveLog(screen, gs, moveLogFont, True)
+    draw(screen, gs)
+
+
 # todo: add whiteToMove sign
 
 def drawBoard(screen):
@@ -221,16 +234,28 @@ def drawPieces(screen, board):
                 screen.blit(IMAGES[piece], p.Rect(c * SQUARE_SIZE, r * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
 
 
-def drawMoveLog(screen, gs, moveLogFont):  # todo: print checks, doublechecks, checkmates, stalemates
+def draw(screen, gs):
+    moveLogRect = p.Rect(BOARD_WIDTH + MOVELOG_PANEL_WIDTH, 0, CLOCK_PANEL_WIDTH, CLOCK_PANEL_HEIGHT)
+    p.draw.rect(screen, p.Color("blue"), moveLogRect)
+    blackTurnRect = p.Rect(BOARD_WIDTH + MOVELOG_PANEL_WIDTH + CLOCK_PANEL_WIDTH*0.25, 50, CLOCK_PANEL_WIDTH / 2, 80)
+    whiteTurnRect = p.Rect(BOARD_WIDTH + MOVELOG_PANEL_WIDTH + CLOCK_PANEL_WIDTH*0.25, CLOCK_PANEL_HEIGHT - 130, CLOCK_PANEL_WIDTH / 2, 80)
+    whiteMoveColor = p.Color("green") if not gs.whiteToMove else p.Color("red")
+    blackMoveColor = p.Color("red") if not gs.whiteToMove else p.Color("green")
+    p.draw.rect(screen, whiteMoveColor, blackTurnRect)
+    p.draw.rect(screen, blackMoveColor, whiteTurnRect)
+
+
+def drawMoveLog(screen, gs, moveLogFont, ifFullNotation):
     moveLogRect = p.Rect(BOARD_WIDTH, 0, MOVELOG_PANEL_WIDTH, MOVELOG_PANEL_HEIGHT)
     p.draw.rect(screen, p.Color("black"), moveLogRect)
     moveLog = gs.moveLog
     checksLog = gs.moveLogChecks
     moveTexts = []
     for i in range(0, len(moveLog), 2):
-        moveString = str(i // 2 + 1) + ". " + moveLog[i].getChessNotation() + str(checksLog[i])
+        moveString = str(i // 2 + 1) + ". " + (moveLog[i].getFullChessNotation() if ifFullNotation
+                                               else moveLog[i].getShortChessNotation(gs)) + str(checksLog[i])
         if i + 1 < len(moveLog):  # make sure black made a move
-            moveString += " " + moveLog[i + 1].getChessNotation() + str(checksLog[i+1]) + " "
+            moveString += " " + moveLog[i + 1].getFullChessNotation() + str(checksLog[i + 1]) + " "
         moveTexts.append(moveString)
 
     padding = 5
