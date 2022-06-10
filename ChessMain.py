@@ -8,6 +8,7 @@ import pyttsx3
 
 import ChessEngine
 import NotationTranslator
+import Sayer
 import VoskAssistant
 
 CLOCK_PANEL_WIDTH = 150
@@ -54,6 +55,7 @@ def main():
     voicing = False
     moveLogString = ""
     engine = pyttsx3.init()
+    sayer = Sayer.Sayer(engine, "ru")
     audioManager = pyaudio.PyAudio()
     while running:
         for e in p.event.get():
@@ -77,8 +79,14 @@ def main():
                             playerClicks.append(squareSelected)
                     if len(playerClicks) == 2:
                         move = ChessEngine.Move(playerClicks[0], playerClicks[1], gs.board)
+
+                        for i in range(len(validMoves)):
+                            print("generated: " + validMoves[i].getFullChessNotation() + ", enpassant: " + str(validMoves[i].isEnPassantMove))
+
                         for i in range(len(validMoves)):
                             if move == validMoves[i]:
+                                attrs = vars(validMoves[i])
+                                print(', '.join("%s: %s" % item for item in attrs.items()))
                                 animate, moveMade = makeMoveAndAnimate(gs, move)
                                 # get valid chess notation
                                 moveNotation = move.getFullChessNotation()
@@ -101,6 +109,8 @@ def main():
                                 squareSelected = ()
                                 playerClicks = []
                         if not moveMade:
+                            attrs = vars(move)
+                            print(', '.join("%s: %s" % item for item in attrs.items()))
                             print(move.getFullChessNotation() + " not valid!")
                             squareSelected = ()
                             playerClicks = []
@@ -120,6 +130,7 @@ def main():
                 if e.key == p.K_r:  # reset the board
                     gs = ChessEngine.GameState()
                     validMoves = gs.getValidMoves()
+                    gameOver = False
                     squareSelected = ()
                     playerClicks = []
                     moveMade = False
@@ -139,23 +150,43 @@ def main():
                                        frames_per_buffer=8000)
             stream.start_stream()
             for text in VoskAssistant.listen(stream, rec):
+                print("Received: " + text)
                 translator = NotationTranslator.NotationTranslator()
                 if "стоп" in text:
                     voicing = False
-                    print("voice play mode being disabled")
+                    sayer.say("Отмена голосового режима")
+                    print("voice play mode disabled")
                     stream.close()
+                    break
+                if "отмен" in text:
+                    sayer.say("Отменяю ход")
+                    gs.undoMove()
+                    moveMade = True
+                    animate = False
+                    if gameOver:
+                        gameOver = not gameOver
+                        gs.checkmate = False
+                        gs.stalemate = False
+                    break
+                if "сброс" in text:
+                    sayer.say("Сброс игры")
+                    gs = ChessEngine.GameState()
+                    validMoves = gs.getValidMoves()
+                    gameOver = False
+                    moveMade = False
+                    animate = False
                     break
                 res = translator.reformatSpeech(str(text))
                 if (len(res) < 6 and res != "O-O" and res != "O-O-O") or res == "" or "(-)" in res \
                         or "[-]" in res or "Unknown" in res:
-                    engine.say("Ход не рас поз нан")
-                    engine.runAndWait()
+                    sayer.say("Ход не рас поз нан")
                     print("Sorry, didn't recognize the move. Please repeat again:" + res)
                     break
                 move = gs.proposeMoveFromNotation(res)
                 print("Reformatted: " + res)
-                engine.say("Ход рас поз нан. Делаю ход")
-                engine.runAndWait()
+                sayer.say("Делаю ход")
+                if sayer.sayMove(res):
+                    raise TypeError("Error in Sayer!")
                 for i in range(len(validMoves)):
                     if move == validMoves[i]:
                         animate, moveMade = makeMoveAndAnimate(gs, move)
@@ -190,7 +221,6 @@ Highlight the squares where pieces can move to
 """
 
 
-# todo: highlight and select only whiteToMove pieces
 def highlightSquares(screen, gs, validMoves, sqSelected):
     if sqSelected != ():
         r, c = sqSelected
@@ -212,10 +242,10 @@ def drawGameState(screen, gs, validMoves, sqSelected, moveLogFont):
     highlightSquares(screen, gs, validMoves, sqSelected)
     drawPieces(screen, gs.board)
     drawMoveLog(screen, gs, moveLogFont, True)
-    draw(screen, gs)
+    drawClockPanel(screen, gs)
 
 
-# todo: add whiteToMove sign
+# todo: make whiteToMove sign to the left
 
 def drawBoard(screen):
     global colors
@@ -234,7 +264,7 @@ def drawPieces(screen, board):
                 screen.blit(IMAGES[piece], p.Rect(c * SQUARE_SIZE, r * SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
 
 
-def draw(screen, gs):
+def drawClockPanel(screen, gs):
     moveLogRect = p.Rect(BOARD_WIDTH + MOVELOG_PANEL_WIDTH, 0, CLOCK_PANEL_WIDTH, CLOCK_PANEL_HEIGHT)
     p.draw.rect(screen, p.Color("blue"), moveLogRect)
     blackTurnRect = p.Rect(BOARD_WIDTH + MOVELOG_PANEL_WIDTH + CLOCK_PANEL_WIDTH*0.25, 50, CLOCK_PANEL_WIDTH / 2, 80)

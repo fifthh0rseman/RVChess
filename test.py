@@ -1,4 +1,5 @@
-import NotationTranslator
+a = {1, 2, 4}
+a.add(3)
 
-s = "пешка же семь же восемь ферзь"
-print(NotationTranslator.NotationTranslator().reformatSpeech(s))
+for i in a:
+    print(i)

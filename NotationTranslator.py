@@ -23,9 +23,6 @@ class NotationTranslator:
             obj, inputString = inputString.split(" ", 1)
             objectsList.append(obj)
         objectsList.append(inputString)
-        print(len(objectsList))
-        for o in objectsList:
-            print(o)
         res = ""
         collidedValuesFirst = False
         collidedValuesSecond = False

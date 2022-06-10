@@ -95,6 +95,7 @@ class GameState:
 
         # make castling
         if move.isCastleMove:
+            print("here")
             if move.endCol - move.startCol == 2:  # kingside castle
                 self.board[move.endRow][move.endCol - 1] = self.board[move.endRow][move.endCol + 1]
                 # grab the rook and move it
@@ -131,20 +132,22 @@ class GameState:
         if len(self.moveLog) != 0:
             move = self.moveLog.pop()
             _ = self.moveLogChecks.pop()
+            # undo en passant
+            if move.isEnPassantMove:
+                self.board[move.endRow][move.endCol] = "--"
+                if self.whiteToMove:
+                    self.board[move.endRow - 1][move.endCol] = move.pieceCaptured
+                else:
+                    self.board[move.endRow + 1][move.endCol] = move.pieceCaptured
+            else:
+                self.board[move.endRow][move.endCol] = move.pieceCaptured
             self.board[move.startRow][move.startCol] = move.pieceMoved
-            self.board[move.endRow][move.endCol] = move.pieceCaptured
             self.whiteToMove = not self.whiteToMove
             if move.pieceMoved == "wK":
                 self.whiteKingLocation = (move.startRow, move.startCol)
             if move.pieceMoved == "bK":
                 self.blackKingLocation = (move.startRow, move.startCol)
-            # undo en passant
-            if move.isEnPassantMove:
-                self.board[move.endRow][move.endCol] = "--"
-                if self.whiteToMove:
-                    self.board[move.endRow + 1][move.endCol] = move.pieceCaptured
-                else:
-                    self.board[move.endRow - 1][move.endCol] = move.pieceCaptured
+
             self.enPassantLog.pop()
             self.enPassantPossible = self.enPassantLog[-1]
 
@@ -614,10 +617,16 @@ class Move:
             self.isPawnPromotion = True
 
         self.isEnPassantMove = isEnPassantMove
+        if self.pieceMoved[1] == "p" and abs(self.startRow - self.endRow) == 1 \
+                and abs(self.startCol - self.endCol) == 1 and board[self.endRow][self.endCol] == "--":
+            self.isEnPassantMove = True
+
         if self.isEnPassantMove:
             self.pieceCaptured = "wp" if self.pieceMoved == "bp" else "bp"
 
         self.isCastleMove = castle
+        if self.pieceMoved[1] == "K" and (self.endCol - self.startCol == 2 or self.endCol - self.startCol == -2):
+            self.isCastleMove = True
 
     def getRankFile(self, r, c):
         return self.colsToFiles[c] + self.rowsToRanks[r]
@@ -659,5 +668,6 @@ class Move:
 
     def __eq__(self, other):
         if isinstance(other, Move):
-            return self.moveID == other.moveID
+            return self.moveID == other.moveID and self.isCastleMove == other.isCastleMove \
+                   and self.isEnPassantMove == other.isEnPassantMove and self.isPawnPromotion == other.isPawnPromotion
         return False
