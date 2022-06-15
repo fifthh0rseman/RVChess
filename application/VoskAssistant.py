@@ -36,7 +36,7 @@ def listen(stream, rec):
             answer = json.loads(rec.Result())
             if answer['text']:
                 yield answer['text']
-                #break
+                break
 
 
 def startExperiment(mode, stream, rec):
@@ -85,4 +85,4 @@ def startExperiment(mode, stream, rec):
             break
 
 
-loadModelAndStartExperiment()
+#loadModelAndStartExperiment()

@@ -79,7 +79,10 @@ class GameState:
             self.blackKingLocation = (move.endRow, move.endCol)
 
         if move.isPawnPromotion:
-            self.board[move.endRow][move.endCol] = move.pieceMoved[0] + move.piecePromoting
+            if move.piecePromoting != "--":
+                self.board[move.endRow][move.endCol] = move.pieceMoved[0] + move.piecePromoting
+            else:
+                self.board[move.endRow][move.endCol] = move.piecePromoting
 
         if move.isEnPassantMove:
             if move.pieceMoved == "wp":
@@ -574,15 +577,19 @@ class GameState:
             startRow = Move.ranksToRows[moveString[2]]
             endCol = Move.filesToCols[moveString[4]]
             endRow = Move.ranksToRows[moveString[5]]
-            piecePromoting = ""
+            piecePromoting = "--"
             if len(moveString) == 7:
                 piecePromoting = moveString[6]
             if self.enPassantPossible == (endRow, endCol):
                 return Move((startRow, startCol),
                             (endRow, endCol), self.board, isEnPassantMove=True)
-            elif piecePromoting != "":
-                return Move((startRow, startCol),
+            elif piecePromoting != "--":
+                if self.board[startRow][startCol][1] == "p" and endRow == 7 or endRow == 0:
+                    return Move((startRow, startCol),
                             (endRow, endCol), self.board, piecePromoting=piecePromoting)
+                else:
+                    return Move((startRow, startCol),
+                                (endRow, endCol), self.board)
             else:
                 return Move((startRow, startCol),
                             (endRow, endCol), self.board)
@@ -602,7 +609,7 @@ class Move:
     filesToCols = {"a": 0, "b": 1, "c": 2, "d": 3, "e": 4, "f": 5, "g": 6, "h": 7}  # dictionary file-col
     colsToFiles = {v: k for k, v in filesToCols.items()}
 
-    def __init__(self, startSq, endSq, board, isEnPassantMove=False, castle=False, piecePromoting="Q"):
+    def __init__(self, startSq, endSq, board, isEnPassantMove=False, castle=False, piecePromoting="--"):
         self.startRow = startSq[0]
         self.startCol = startSq[1]
         self.endRow = endSq[0]

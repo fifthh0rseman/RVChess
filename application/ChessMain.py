@@ -57,6 +57,7 @@ def main():
     engine = pyttsx3.init()
     sayer = Sayer.Sayer(engine, "ru")
     audioManager = pyaudio.PyAudio()
+    currentPiecePromoting = "--"
     while running:
         for e in p.event.get():
             if e.type == p.QUIT:
@@ -81,12 +82,21 @@ def main():
                         move = ChessEngine.Move(playerClicks[0], playerClicks[1], gs.board)
 
                         for i in range(len(validMoves)):
-                            print("generated: " + validMoves[i].getFullChessNotation() + ", enpassant: " + str(validMoves[i].isEnPassantMove))
+                            print("generated: " + validMoves[i].getFullChessNotation() + ", enpassant: " + str(
+                                validMoves[i].isEnPassantMove))
 
                         for i in range(len(validMoves)):
                             if move == validMoves[i]:
                                 attrs = vars(validMoves[i])
                                 print(', '.join("%s: %s" % item for item in attrs.items()))
+                                if move.isPawnPromotion:
+                                    if currentPiecePromoting == "--":
+                                        print("Please specify the promoting piece: 1 - queen, 2 - rook, "
+                                              "3 - bishop, 4 - knight")
+                                        continue
+                                    else:
+                                        move.piecePromoting = currentPiecePromoting
+                                        currentPiecePromoting = "--"
                                 animate, moveMade = makeMoveAndAnimate(gs, move)
                                 # get valid chess notation
                                 moveNotation = move.getFullChessNotation()
@@ -108,6 +118,7 @@ def main():
                                 # undo selecting
                                 squareSelected = ()
                                 playerClicks = []
+
                         if not moveMade:
                             attrs = vars(move)
                             print(', '.join("%s: %s" % item for item in attrs.items()))
@@ -143,6 +154,14 @@ def main():
                     else:
                         print("Voice play mode disabled.")
                         voicing = False
+                if e.key == p.K_1:  # queen
+                    currentPiecePromoting = "Q"
+                if e.key == p.K_2:  # rook
+                    currentPiecePromoting = "R"
+                if e.key == p.K_3:  # bishop
+                    currentPiecePromoting = "B"
+                if e.key == p.K_4:  # knight
+                    currentPiecePromoting = "N"
 
         if voicing:
             rec = KaldiRecognizer(model, 16000)
@@ -184,6 +203,10 @@ def main():
                         print("Sorry, didn't recognize the move. Please repeat again:" + res)
                         break
                     move = gs.proposeMoveFromNotation(res)
+                    if move.isPawnPromotion and move.piecePromoting == "--":
+                        sayer.say("Ход не верен. Укажите фигуру превращения")
+                        print("Specify the promoting piece")
+                        break
                     for i in range(len(validMoves)):
                         if move == validMoves[i]:
                             animate, moveMade = makeMoveAndAnimate(gs, move)
@@ -274,8 +297,9 @@ def drawPieces(screen, board):
 def drawClockPanel(screen, gs):
     moveLogRect = p.Rect(BOARD_WIDTH + MOVELOG_PANEL_WIDTH, 0, CLOCK_PANEL_WIDTH, CLOCK_PANEL_HEIGHT)
     p.draw.rect(screen, p.Color("blue"), moveLogRect)
-    blackTurnRect = p.Rect(BOARD_WIDTH + MOVELOG_PANEL_WIDTH + CLOCK_PANEL_WIDTH*0.25, 50, CLOCK_PANEL_WIDTH / 2, 80)
-    whiteTurnRect = p.Rect(BOARD_WIDTH + MOVELOG_PANEL_WIDTH + CLOCK_PANEL_WIDTH*0.25, CLOCK_PANEL_HEIGHT - 130, CLOCK_PANEL_WIDTH / 2, 80)
+    blackTurnRect = p.Rect(BOARD_WIDTH + MOVELOG_PANEL_WIDTH + CLOCK_PANEL_WIDTH * 0.25, 50, CLOCK_PANEL_WIDTH / 2, 80)
+    whiteTurnRect = p.Rect(BOARD_WIDTH + MOVELOG_PANEL_WIDTH + CLOCK_PANEL_WIDTH * 0.25, CLOCK_PANEL_HEIGHT - 130,
+                           CLOCK_PANEL_WIDTH / 2, 80)
     whiteMoveColor = p.Color("green") if not gs.whiteToMove else p.Color("red")
     blackMoveColor = p.Color("red") if not gs.whiteToMove else p.Color("green")
     p.draw.rect(screen, whiteMoveColor, blackTurnRect)
