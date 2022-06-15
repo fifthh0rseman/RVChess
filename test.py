@@ -1,5 +1,8 @@
-a = {1, 2, 4}
-a.add(3)
+from application.translator import NotationTranslator as nt
 
-for i in a:
-    print(i)
+translator = nt.NotationTranslator()
+
+a = "пешка едва четыре"
+
+b = translator.reformatSpeech(a)
+print(b)
