@@ -53,7 +53,6 @@ def main():
     playerClicks = []
     gameOver = False
     voicing = False
-    moveLogString = ""
     engine = pyttsx3.init()
     sayer = Sayer.Sayer(engine, "ru")
     audioManager = pyaudio.PyAudio()
@@ -82,10 +81,6 @@ def main():
                         move = ChessEngine.Move(playerClicks[0], playerClicks[1], gs.board)
 
                         for i in range(len(validMoves)):
-                            print("generated: " + validMoves[i].getFullChessNotation() + ", enpassant: " + str(
-                                validMoves[i].isEnPassantMove))
-
-                        for i in range(len(validMoves)):
                             if move == validMoves[i]:
                                 attrs = vars(validMoves[i])
                                 print(', '.join("%s: %s" % item for item in attrs.items()))
@@ -98,22 +93,6 @@ def main():
                                         move.piecePromoting = currentPiecePromoting
                                         currentPiecePromoting = "--"
                                 animate, moveMade = makeMoveAndAnimate(gs, move)
-                                # get valid chess notation
-                                moveNotation = move.getFullChessNotation()
-                                gs.inCheck, gs.checks, gs.pins, gs.inDoubleCheck = gs.checkForPinsAndChecks()
-                                number = gs.moveLog.index(move)
-                                moveNotation = (str(number + 1) + ". " if (number + 1) % 2 == 1 else "") + moveNotation
-
-                                if gs.inCheck and not gs.inDoubleCheck:
-                                    moveNotation += "+"
-                                elif gs.inDoubleCheck:
-                                    moveNotation += "++"
-                                elif gs.checkmate:
-                                    moveNotation += "#"
-                                elif gs.stalemate:
-                                    moveNotation += "$"
-                                moveLogString += moveNotation
-                                print(moveNotation)
                                 print("turn: " + ("white" if gs.whiteToMove else "black"))
                                 # undo selecting
                                 squareSelected = ()
@@ -150,9 +129,11 @@ def main():
                 if e.key == p.K_g:  # enter the voice mode
                     if not voicing:
                         print("Voice play mode is chosen.")
+                        sayer.say("Голосовой режим включен.")
                         voicing = True
                     else:
                         print("Voice play mode disabled.")
+                        sayer.say("Отмена голосового режима")
                         voicing = False
                 if e.key == p.K_1:  # queen
                     currentPiecePromoting = "Q"
@@ -218,6 +199,8 @@ def main():
                     else:
                         print("Incorrect move.")
                         sayer.say("Невозможный ход")
+                        if sayer.sayMove(res):
+                            raise TypeError("Error in Sayer!")
                 else:
                     sayer.say("Игра окончена. Пожалуйста, перезапустите игру или отмените ход.")
             stream.close()
@@ -312,6 +295,7 @@ def drawMoveLog(screen, gs, moveLogFont, ifFullNotation):
     moveLog = gs.moveLog
     checksLog = gs.moveLogChecks
     moveTexts = []
+    movesPerRow = 3
     for i in range(0, len(moveLog), 2):
         moveString = str(i // 2 + 1) + ". " + (moveLog[i].getFullChessNotation() if ifFullNotation
                                                else moveLog[i].getShortChessNotation(gs)) + str(checksLog[i])
@@ -319,10 +303,14 @@ def drawMoveLog(screen, gs, moveLogFont, ifFullNotation):
             moveString += " " + moveLog[i + 1].getFullChessNotation() + str(checksLog[i + 1]) + " "
         moveTexts.append(moveString)
 
+        if i >= 150:
+            moveTexts = moveTexts[1:]
+
+
     padding = 5
     paddingY = padding
     lineSpacing = 2
-    movesPerRow = 3
+
     for i in range(0, len(moveTexts), movesPerRow):
         text = ""
         for j in range(movesPerRow):

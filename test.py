@@ -1,8 +1,3 @@
-from application.translator import NotationTranslator as nt
-
-translator = nt.NotationTranslator()
-
-a = "пешка едва четыре"
-
-b = translator.reformatSpeech(a)
-print(b)
+a = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+b = []
+for i in range(0, len(a), 2):

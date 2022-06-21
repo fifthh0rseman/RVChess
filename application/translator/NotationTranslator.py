@@ -4,7 +4,7 @@ class NotationTranslator:
         self.ruFigureDict = {"король": "K", "ферзь": "Q", "ладья": "R", "слон": "B", "конь": "N", "пешка": "p"}
         self.ruNumberDict = {"один": 1, "два": 2, "три": 3, "четыре": 4, "пять": 5, "шесть": 6, "семь": 7, "восемь": 8}
         self.ruColDict = {"а": "a", "б": "b", "бы": "b", "бай": "b", "це": "c", "с": "c", "со": "c", "де": "d", "дай": "d",
-                          "я": "e", "ей": "e", "е": "e", "эф": "f", "же": "g", "аш": "h"}
+                          "я": "e", "ей": "e", "е": "e", "эф": "f", "же": "g", "аш": "h", "аж": "h"}
         self.ruExceptionsList = {"едва": "e2", "опять": "a5", "фадин": "f1"}
 
     def reformatSpeech(self, speechString):
@@ -130,6 +130,8 @@ class NotationTranslator:
             elif moveColContender not in self.ruNumberDict:
                 if "д" in moveColContender:
                     result += "d"
+                elif "ф" in moveColContender:
+                    result += "f"
                 elif "ж" in moveColContender:
                     result += "g"
                 elif "б" in moveColContender:
@@ -140,8 +142,6 @@ class NotationTranslator:
                     result += "a"
                 elif "е" in moveColContender:
                     result += "e"
-                elif "ф" in moveColContender:
-                    result += "f"
                 else:
                     print("Column is not recognized")
                     result += "(-)"
@@ -158,7 +158,7 @@ class NotationTranslator:
                 result += "K"
             elif "сло" in figure:
                 result += "B"
-            elif "фе" in figure:
+            elif "фе" in figure or "фи" in figure:
                 result += "Q"
             elif "лад" in figure:
                 result += "R"
