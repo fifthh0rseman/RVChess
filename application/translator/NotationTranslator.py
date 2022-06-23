@@ -116,7 +116,6 @@ class NotationTranslator:
         if moveStartNumberContender in self.ruNumberDict:
             result += str(self.ruNumberDict[moveStartNumberContender])
         else:
-            # todo
             print("Row number is not recognized")
             result += "[-]"
         return result
@@ -156,9 +155,9 @@ class NotationTranslator:
         else:
             if "коро" in figure:
                 result += "K"
-            elif "сло" in figure:
+            elif "сло" in figure or "салон" in figure:
                 result += "B"
-            elif "фе" in figure or "фи" in figure:
+            elif "фе" in figure or "фи" in figure or "перси" in figure:
                 result += "Q"
             elif "лад" in figure:
                 result += "R"

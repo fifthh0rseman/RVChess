@@ -196,6 +196,14 @@ def main():
                         sayer.say("Делаю ход")
                         if sayer.sayMove(res):
                             raise TypeError("Error in Sayer!")
+                        if gs.inCheck and not gs.inDoubleCheck:
+                            sayer.say("Шах")
+                        if gs.inDoubleCheck:
+                            sayer.say("Двойной шах")
+                        if gs.stalemate:
+                            sayer.say("Пат")
+                        if gs.checkmate:
+                            sayer.say("И мат")
                     else:
                         print("Incorrect move.")
                         sayer.say("Невозможный ход")
